@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Vehicle Telemetry Stream</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+        }
+
+        #messages {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 400px;
+            overflow-y: scroll;
+        }
+
+        .message {
+            margin: 5px 0;
+            padding: 5px;
+            border-radius: 3px;
+        }
+
+        .CRITICAL {
+            background-color: #ffcccc;
+        }
+
+        .WARNING {
+            background-color: #fff3cd;
+        }
+
+        .NORMAL {
+            background-color: #d4edda;
+        }
+
+        button {
+            margin: 5px;
+            padding: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Vehicle Telemetry Real-Time Stream</h1>
+
+    <div>
+        <button onclick="connectAll()">Connect to All Vehicles</button>
+        <button onclick="connectVehicle()">Connect to Specific Vehicle</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+
+    <div>
+        <input type="text" id="vehicleId" placeholder="Vehicle ID" />
+    </div>
+
+    <h2>Live Data:</h2>
+    <div id="messages"></div>
+
+    <script>
+        let ws = null;
+
+        function connectAll() {
+            disconnect();
+            ws = new WebSocket("ws://localhost:8000/api/telemetry/stream");
+            setupWebSocket("All Vehicles");
+        }
+
+        function connectVehicle() {
+            const vehicleId = document.getElementById('vehicleId').value;
+            if (!vehicleId) {
+                alert("Please enter a vehicle ID");
+                return;
+            }
+            disconnect();
+            ws = new WebSocket(`ws://localhost:8000/api/telemetry/stream/${vehicleId}`);
+            setupWebSocket(`Vehicle ${vehicleId}`);
+        }
+
+        function setupWebSocket(label) {
+            ws.onopen = () => {
+                addMessage(`Connected to ${label}`, 'NORMAL');
+            };
+
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                const msg = `[${data.timestamp}] Vehicle ${data.vehicleId}: Speed=${data.speed}, Temp=${data.engineTemperature}, Battery=${data.batteryLevel}%, Status=${data.status}`;
+                addMessage(msg, data.status);
+            };
+
+            ws.onerror = (error) => {
+                addMessage(`Error: ${error}`, 'CRITICAL');
+            };
+
+            ws.onclose = () => {
+                addMessage('Connection closed', 'WARNING');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function addMessage(msg, status) {
+            const messagesDiv = document.getElementById('messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message ${status}`;
+            msgDiv.textContent = msg;
+            messagesDiv.appendChild(msgDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+    </script>
+</body>
+
+</html>
